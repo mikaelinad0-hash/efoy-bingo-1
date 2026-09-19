@@ -8,8 +8,8 @@ const io = new Server(server, { cors: { origin: "*" } });
 
 app.use(express.static('public'));
 
-// የጨዋታው ሁኔታ (Game State)
-let players = new Set();
+// የሎቢ እና የጨዋታ ሁኔታዎች
+let lobbyPlayers = new Map(); // socket.id -> player info
 let countdownTimer = null;
 let countdown = 30;
 let gameRunning = false;
@@ -19,58 +19,73 @@ let drawInterval = null;
 io.on('connection', (socket) => {
   console.log('Player connected:', socket.id);
 
-  // ተጫዋች ሲቀላቀል
-  socket.on('joinGame', () => {
-    players.add(socket.id);
-    io.emit('playerCountUpdate', players.size);
+  // ተጫዋች ሎቢ ሲቀላቀል
+  socket.on('joinLobby', (data) => {
+    lobbyPlayers.set(socket.id, {
+      id: socket.id,
+      cardCount: data.cardCount || 1,
+      ready: true
+    });
 
-    // 2 እና ከዛ በላይ ተጫዋች ሲኖር እና ጨዋታው ካልጀመረ የ30 ሰከንድ ቆጠራ ይጀምራል
-    if (players.size >= 2 && !gameRunning && !countdownTimer) {
-      startCountdown();
+    // የሎቢ ተጫዋቾች ብዛትን ለሁሉም መላክ
+    io.emit('lobbyUpdate', {
+      playerCount: lobbyPlayers.size,
+      status: `ተጫዋቾች: ${lobbyPlayers.size} (ቢያንስ 2 ተጫዋች ያስፈልጋል)`
+    });
+
+    // 2 እና ከዛ በላይ ተጫዋች ሲሞላ የ 30 ሰከንድ ቆጠራ ይጀምራል
+    if (lobbyPlayers.size >= 2 && !gameRunning && !countdownTimer) {
+      start30SecCountdown();
     }
   });
 
-  // ተጫዋች ሲወጣ
+  // ተጫዋች ከሎቢ ሲወጣ
   socket.on('disconnect', () => {
-    players.delete(socket.id);
-    io.emit('playerCountUpdate', players.size);
+    lobbyPlayers.delete(socket.id);
+
+    io.emit('lobbyUpdate', {
+      playerCount: lobbyPlayers.size,
+      status: `ተጫዋቾች: ${lobbyPlayers.size}`
+    });
 
     // ተጫዋች ከ2 በታች ከወረደ ቆጠራው ይቋረጣል
-    if (players.size < 2 && countdownTimer && !gameRunning) {
+    if (lobbyPlayers.size < 2 && countdownTimer && !gameRunning) {
       clearInterval(countdownTimer);
       countdownTimer = null;
       countdown = 30;
-      io.emit('statusUpdate', 'በቂ ተጫዋች ስለሌለ ጨዋታው ተሰርዟል፤ ተጫዋች በመጠበቅ ላይ...');
+      io.emit('countdownCancel', 'በቂ ተጫዋች የለም፤ ሌላ ተጫዋች በመጠበቅ ላይ...');
     }
   });
 });
 
-// የ 30 ሰከንድ ቆጠራ ማስጀመሪያ function
-function startCountdown() {
+// የ 30 ሰከንድ ቆጠራ function
+function start30SecCountdown() {
   countdown = 30;
-  io.emit('statusUpdate', `ጨዋታው በ ${countdown} ሰከንድ ውስጥ ይጀምራል...`);
+  io.emit('countdownTick', countdown);
 
   countdownTimer = setInterval(() => {
     countdown--;
-    io.emit('statusUpdate', `ጨዋታው በ ${countdown} ሰከንድ ውስጥ ይጀምራል...`);
+    io.emit('countdownTick', countdown);
 
     if (countdown <= 0) {
       clearInterval(countdownTimer);
       countdownTimer = null;
-      startGame();
+      startGameSession();
     }
   }, 1000);
 }
 
-// አውቶማቲክ ቁጥር መጥሪያ function
-function startGame() {
+// ጨዋታ ማስጀመሪያ function
+function startGameSession() {
   gameRunning = true;
   calledNumbers = [];
-  io.emit('statusUpdate', 'ጨዋታው ተጀምሯል! መልካም እድል!');
+
+  // ለሁሉም ተጫዋቾች ጨዋታው መጀመሩን ማሳወቅ (ወደ Game View ያዛውራቸዋል)
+  io.emit('gameStarted');
 
   let availableNumbers = Array.from({ length: 75 }, (_, i) => i + 1);
 
-  // በየ 3 ሰከንዱ አውቶማቲክ ቁጥር ይጠራል
+  // በየ 3 ሰከንዱ አውቶማቲክ ቁጥር መጥራት
   drawInterval = setInterval(() => {
     if (availableNumbers.length === 0) {
       clearInterval(drawInterval);
@@ -82,7 +97,6 @@ function startGame() {
     const drawnNumber = availableNumbers.splice(randomIndex, 1)[0];
     calledNumbers.push(drawnNumber);
 
-    // ለሁሉም ተጫዋቾች የተጠራውን ቁጥር መላክ
     io.emit('numberDrawn', {
       number: drawnNumber,
       count: calledNumbers.length,

@@ -116,6 +116,73 @@
 </style>
 </head>
 <body>
+<!DOCTYPE html>
+<html lang="am">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Efoy Bingo</title>
+  <link rel="stylesheet" href="style.css?v=3">
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+
+  <!-- ==================== 1. የሎቢ ገጽ (LOBBY ROOM VIEW) ==================== -->
+  <div id="lobby-view" class="view-screen">
+    <div class="lobby-card">
+      <h2>የቢንጎ ጨዋታ ሎቢ</h2>
+      <p class="lobby-subtitle">ካርድ ይምረጡና ተጫዋች እስኪገባ ይ ጠብቁ</p>
+
+      <div class="card-selection">
+        <label>የካርድ ብዛት ይምረጡ፦</label>
+        <div class="card-options">
+          <button class="card-opt-btn active" onclick="selectCardCount(1)">1 ካርድ</button>
+          <button class="card-opt-btn" onclick="selectCardCount(2)">2 ካርድ</button>
+          <button class="card-opt-btn" onclick="selectCardCount(4)">4 ካርድ</button>
+        </div>
+      </div>
+
+      <div class="status-box">
+        <span id="lobby-status-text">ተጫዋች በመጠበቅ ላይ...</span>
+        <div id="countdown-display" class="hidden">
+          ጨዋታው በ <span id="timer-seconds">30</span> ሰከንድ ይጀምራል!
+        </div>
+      </div>
+
+      <button id="join-btn" class="primary-btn" onclick="joinRoom()">ጨዋታ ይቀላቀሉ (Join)</button>
+    </div>
+  </div>
+
+  <!-- ==================== 2. የጨዋታ ገጽ (GAME VIEW) ==================== -->
+  <div id="game-view" class="view-screen hidden">
+    <!-- ጥቁሩ ያማረው የቢንጎ መጫወቻ ገጽዎ -->
+    <div class="header-bar">
+      <span>GAME ID: #1504</span>
+      <span>ጥሪ: <b id="calls-count">0/75</b></span>
+      <span>ተጫዋቾች: <b id="player-count">0</b></span>
+    </div>
+
+    <div class="game-container">
+      <!-- ማስተር ቦርድ (1-75) -->
+      <div id="master-board" class="master-board-grid"></div>
+
+      <!-- የተጫዋች ቢንጎ ካርድ -->
+      <div class="player-card-section">
+        <div class="status-text-bar" id="game-status-bar">ጨዋታው ተጀምሯል!</div>
+        <div id="bingo-card-container"></div>
+      </div>
+    </div>
+
+    <div class="action-buttons">
+      <button class="bingo-btn">BINGO!</button>
+      <button class="leave-btn" onclick="leaveGame()">← Leave</button>
+      <button class="refresh-btn" onclick="location.reload()">↻ Refresh</button>
+    </div>
+  </div>
+
+  <script src="script.js?v=3"></script>
+</body>
+</html>
 
 <div class="screen-container">
     <div id="screen-game" class="screen">
