@@ -1,150 +1,97 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-    cors: { origin: "*" }
-});
+const io = new Server(server, { cors: { origin: "*" } });
 
-// የ public ፎልደር ውስጥ ያሉትን ፋይሎች ማንበቢያ (ይህ መስመር ነው)
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static('public'));
 
-let rooms = {};
-
-function getOrCreateRoom(roomId) {
-    if (!rooms[roomId]) {
-        rooms[roomId] = {
-            id: roomId,
-            players: {},
-            calledNumbers: [],
-            gameState: 'waiting',
-            countdownTimer: 10,
-            gameInterval: null,
-            countdownInterval: null
-        };
-    }
-    return rooms[roomId];
-}
+// የጨዋታው ሁኔታ (Game State)
+let players = new Set();
+let countdownTimer = null;
+let countdown = 30;
+let gameRunning = false;
+let calledNumbers = [];
+let drawInterval = null;
 
 io.on('connection', (socket) => {
-    console.log(`[CONNECTED] User: ${socket.id}`);
+  console.log('Player connected:', socket.id);
 
-    socket.on('join_room', (data) => {
-        const roomId = data.roomId || 'room_1';
-        const room = getOrCreateRoom(roomId);
+  // ተጫዋች ሲቀላቀል
+  socket.on('joinGame', () => {
+    players.add(socket.id);
+    io.emit('playerCountUpdate', players.size);
 
-        socket.join(roomId);
-        room.players[socket.id] = {
-            id: socket.id,
-            cardsCount: data.cardsCount || 1,
-            cards: data.cards || []
-        };
+    // 2 እና ከዛ በላይ ተጫዋች ሲኖር እና ጨዋታው ካልጀመረ የ30 ሰከንድ ቆጠራ ይጀምራል
+    if (players.size >= 2 && !gameRunning && !countdownTimer) {
+      startCountdown();
+    }
+  });
 
-        io.to(roomId).emit('update_players_count', Object.keys(room.players).length);
+  // ተጫዋች ሲወጣ
+  socket.on('disconnect', () => {
+    players.delete(socket.id);
+    io.emit('playerCountUpdate', players.size);
 
-        if (Object.keys(room.players).length >= 2 && room.gameState === 'waiting') {
-            startRoomCountdown(roomId);
-        }
-    });
-
-    socket.on('claim_bingo', (data) => {
-        const roomId = data.roomId || 'room_1';
-        const room = rooms[roomId];
-
-        if (room && room.gameState === 'playing') {
-            io.to(roomId).emit('game_over', {
-                winnerId: socket.id,
-                message: `🎉 ተጫዋች (${socket.id.substring(0, 5)}) BINGO ብሏል!`
-            });
-            resetRoom(roomId);
-        }
-    });
-
-    socket.on('disconnect', () => {
-        console.log(`[DISCONNECTED] User: ${socket.id}`);
-        for (let roomId in rooms) {
-            let room = rooms[roomId];
-            if (room.players[socket.id]) {
-                delete room.players[socket.id];
-                io.to(roomId).emit('update_players_count', Object.keys(room.players).length);
-            }
-        }
-    });
+    // ተጫዋች ከ2 በታች ከወረደ ቆጠራው ይቋረጣል
+    if (players.size < 2 && countdownTimer && !gameRunning) {
+      clearInterval(countdownTimer);
+      countdownTimer = null;
+      countdown = 30;
+      io.emit('statusUpdate', 'በቂ ተጫዋች ስለሌለ ጨዋታው ተሰርዟል፤ ተጫዋች በመጠበቅ ላይ...');
+    }
+  });
 });
 
-function startRoomCountdown(roomId) {
-    const room = rooms[roomId];
-    if (!room) return;
+// የ 30 ሰከንድ ቆጠራ ማስጀመሪያ function
+function startCountdown() {
+  countdown = 30;
+  io.emit('statusUpdate', `ጨዋታው በ ${countdown} ሰከንድ ውስጥ ይጀምራል...`);
 
-    room.gameState = 'countdown';
-    room.countdownTimer = 10;
+  countdownTimer = setInterval(() => {
+    countdown--;
+    io.emit('statusUpdate', `ጨዋታው በ ${countdown} ሰከንድ ውስጥ ይጀምራል...`);
 
-    io.to(roomId).emit('countdown_started', { duration: room.countdownTimer });
-
-    room.countdownInterval = setInterval(() => {
-        room.countdownTimer--;
-        io.to(roomId).emit('countdown_tick', { timer: room.countdownTimer });
-
-        if (room.countdownTimer <= 0) {
-            clearInterval(room.countdownInterval);
-            startRoomGame(roomId);
-        }
-    }, 1000);
+    if (countdown <= 0) {
+      clearInterval(countdownTimer);
+      countdownTimer = null;
+      startGame();
+    }
+  }, 1000);
 }
 
-function startRoomGame(roomId) {
-    const room = rooms[roomId];
-    if (!room) return;
+// አውቶማቲክ ቁጥር መጥሪያ function
+function startGame() {
+  gameRunning = true;
+  calledNumbers = [];
+  io.emit('statusUpdate', 'ጨዋታው ተጀምሯል! መልካም እድል!');
 
-    room.gameState = 'playing';
-    room.calledNumbers = [];
-    io.to(roomId).emit('game_started');
+  let availableNumbers = Array.from({ length: 75 }, (_, i) => i + 1);
 
-    room.gameInterval = setInterval(() => {
-        if (room.calledNumbers.length >= 75) {
-            io.to(roomId).emit('game_over', { message: 'ሁሉም ቁጥሮች ተጠርተው አልቀዋል!' });
-            resetRoom(roomId);
-            return;
-        }
+  // በየ 3 ሰከንዱ አውቶማቲክ ቁጥር ይጠራል
+  drawInterval = setInterval(() => {
+    if (availableNumbers.length === 0) {
+      clearInterval(drawInterval);
+      io.emit('statusUpdate', 'ሁሉም ቁጥሮች ተጠርተዋል!');
+      return;
+    }
 
-        let num;
-        do {
-            num = Math.floor(Math.random() * 75) + 1;
-        } while (room.calledNumbers.includes(num));
+    const randomIndex = Math.floor(Math.random() * availableNumbers.length);
+    const drawnNumber = availableNumbers.splice(randomIndex, 1)[0];
+    calledNumbers.push(drawnNumber);
 
-        room.calledNumbers.push(num);
-        let letter = num <= 15 ? 'B' : num <= 30 ? 'I' : num <= 45 ? 'N' : num <= 60 ? 'G' : 'O';
-
-        io.to(roomId).emit('number_called', {
-            number: num,
-            letter: letter,
-            callText: `${letter}-${num}`,
-            totalCount: room.calledNumbers.length
-        });
-
-    }, 4000);
-}
-
-function resetRoom(roomId) {
-    const room = rooms[roomId];
-    if (!room) return;
-
-    clearInterval(room.gameInterval);
-    clearInterval(room.countdownInterval);
-    room.gameState = 'waiting';
-    room.calledNumbers = [];
-
-    setTimeout(() => {
-        if (Object.keys(room.players).length >= 2) {
-            startRoomCountdown(roomId);
-        }
-    }, 5000);
+    // ለሁሉም ተጫዋቾች የተጠራውን ቁጥር መላክ
+    io.emit('numberDrawn', {
+      number: drawnNumber,
+      count: calledNumbers.length,
+      allCalled: calledNumbers
+    });
+  }, 3000);
 }
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`🚀 Real Online Multiplayer Server is running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
