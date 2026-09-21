@@ -1,468 +1,339 @@
 <!DOCTYPE html>
 <html lang="am">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>እፎይ ቢንጎ - Multi Card</title>
-
-<!-- Montserrat Font -->
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;900&display=swap" rel="stylesheet">
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-
-<style>
-    :root {
-        --bg-color: #0f172a; --card-bg: #1e293b; --primary-btn: #8b5cf6;
-        --border-color: #334155; --text-light: #f8fafc; --text-muted: #94a3b8;
-        --gold: #fbbf24; --danger: #ef4444; --success: #22c55e;
-        --b: #eab308; --i: #22c55e; --n: #3b82f6; --g: #ef4444; --o: #a855f7;
-    }
-    
-    * { 
-        box-sizing: border-box; 
-        margin: 0; 
-        padding: 0; 
-        font-family: 'Montserrat', sans-serif; 
-        font-weight: 700; 
-        user-select: none; 
-    }
-    
-    body { background-color: var(--bg-color); color: var(--text-light); height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
-    
-    .screen-container { flex: 1; display: flex; flex-direction: column; padding: 6px; overflow: hidden; padding-bottom: 55px; }
-    .screen { display: flex; flex-direction: column; height: 100%; justify-content: space-between; }
-    
-    /* Header Metric Bar */
-    .metric-bar { display: flex; gap: 4px; padding-bottom: 4px; flex-shrink: 0; }
-    .metric-chip { background: var(--card-bg); padding: 4px 6px; border-radius: 6px; border: 1px solid var(--border-color); text-align: center; flex: 1; cursor: pointer; transition: transform 0.1s; }
-    .metric-chip:active { transform: scale(0.92); border-color: var(--gold); }
-    .metric-label { font-size: 9px; color: var(--text-muted); font-weight: 700; }
-    .metric-value { font-size: 11px; font-weight: 900; color: var(--gold); }
-    .metric-sound { background: #312e81; }
-
-    /* Main Game Layout */
-    .game-boards-row { display: flex; gap: 6px; flex: 1; min-height: 0; }
-    .master-panel, .right-column { background: var(--card-bg); border-radius: 8px; padding: 6px; border: 1px solid var(--border-color); display: flex; flex-direction: column; }
-    .master-panel { flex: 0.35; padding-top: 6px; }
-    .right-column { flex: 0.65; overflow-y: auto; }
-
-    /* Master Board Grid (1-75) */
-    .master-board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; flex: 1; }
-    .mb-cell { background: var(--bg-color); border-radius: 3px; font-size: 9px; display: flex; justify-content: center; align-items: center; color: #475569; border: 1px solid #1e293b; font-weight: 900; }
-    .mb-header { font-weight: 900; color: white; font-size: 11px; border: none; }
-    .mb-cell.called { color: white; font-weight: 900; }
-    .mb-cell.called.b { background-color: var(--b); }
-    .mb-cell.called.i { background-color: var(--i); }
-    .mb-cell.called.n { background-color: var(--n); }
-    .mb-cell.called.g { background-color: var(--g); }
-    .mb-cell.called.o { background-color: var(--o); }
-
-    /* Caller & Countdown Area */
-    .caller-area { background: var(--bg-color); border-radius: 6px; padding: 6px; margin-bottom: 6px; text-align: center; border: 1px solid var(--border-color); flex-shrink: 0; }
-    .countdown-row { display: flex; justify-content: space-between; font-size: 10px; color: var(--gold); font-weight: 900; margin-bottom: 2px; }
-    .countdown-bar-track { height: 3px; background: #334155; border-radius: 2px; overflow: hidden; margin-bottom: 4px; }
-    .countdown-bar-fill { height: 100%; background: var(--gold); width: 100%; transition: width 1s linear; }
-    
-    .current-call-badge { display: inline-block; background: var(--n); color: white; padding: 2px 12px; border-radius: 10px; font-size: 16px; font-weight: 900; margin-bottom: 4px; }
-    
-    .called-balls { display: flex; gap: 4px; justify-content: center; min-height: 18px; }
-    .mini-ball { width: 20px; height: 20px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 9px; font-weight: 900; color: white; }
-
-    /* Card Selector Options */
-    .card-selector-bar { display: flex; gap: 4px; margin-bottom: 6px; justify-content: center; align-items: center; }
-    .card-sel-btn { flex: 1; padding: 4px 2px; background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 4px; font-size: 10px; font-weight: 900; cursor: pointer; text-align: center; }
-    .card-sel-btn.active { background: var(--primary-btn); color: white; border-color: var(--primary-btn); }
-
-    /* Multi Card Grid Container */
-    .cards-container { display: grid; gap: 6px; flex: 1; }
-    .cards-container.cards-1 { grid-template-columns: 1fr; }
-    .cards-container.cards-2 { grid-template-columns: 1fr; }
-    .cards-container.cards-4 { grid-template-columns: 1fr 1fr; }
-
-    /* Single Player Board Inside Multi-View */
-    .card-wrapper { background: var(--bg-color); padding: 4px; border-radius: 6px; border: 1px solid var(--border-color); display: flex; flex-direction: column; }
-    .card-header-title { font-size: 9px; color: var(--gold); text-align: center; margin-bottom: 2px; }
-
-    .bingo-board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; }
-    .bb-cell { background: #0f172a; aspect-ratio: 1; border-radius: 3px; display: flex; justify-content: center; align-items: center; font-size: 11px; font-weight: 900; border: 1px solid #334155; cursor: pointer; transition: transform 0.1s; }
-    .bb-cell:active { transform: scale(0.9); }
-    .bb-header { font-size: 11px; border: none; aspect-ratio: auto; padding: 1px 0; cursor: default; color: white; font-weight: 900; }
-    .bb-header.b { background-color: var(--b); }
-    .bb-header.i { background-color: var(--i); }
-    .bb-header.n { background-color: var(--n); }
-    .bb-header.g { background-color: var(--g); }
-    .bb-header.o { background-color: var(--o); }
-    
-    .bb-cell.marked { background-color: var(--gold); color: #000; border-color: var(--gold); }
-    .bb-cell.free { background: linear-gradient(135deg, #312e81, #4c1d95); color: var(--gold); font-size: 8px; flex-direction: column; cursor: default; }
-
-    /* Compact sizing for 4-Card View */
-    .cards-4 .bb-cell { font-size: 9px; }
-    .cards-4 .bb-header { font-size: 9px; }
-
-    /* Action Buttons */
-    .bingo-btn { width: 100%; padding: 10px; background: linear-gradient(90deg, #9333ea, #6366f1); color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: 900; letter-spacing: 1px; margin-top: 4px; margin-bottom: 4px; cursor: pointer; transition: transform 0.1s ease; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
-    .bingo-btn:active { transform: scale(0.96); }
-    
-    .action-bar-row { display: flex; gap: 6px; }
-    .back-btn { flex: 1; padding: 8px; border: none; border-radius: 6px; font-weight: 900; color: white; cursor: pointer; font-size: 12px; transition: transform 0.1s ease; }
-    .back-btn:active { transform: scale(0.95); }
-    .btn-leave { background: var(--danger); }
-    .btn-refresh { background: var(--n); }
-
-    /* Bottom Nav */
-    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #0f172a; display: flex; justify-content: space-around; padding: 6px 0; border-top: 1px solid var(--border-color); z-index: 100; }
-    .nav-item { display: flex; flex-direction: column; align-items: center; color: var(--text-muted); font-size: 10px; cursor: pointer; font-weight: 700; }
-    .nav-item.active { color: var(--gold); }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>EFOY BINGO</title>
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<div class="screen-container">
-    <div id="screen-game" class="screen">
-        <!-- Metric Bar -->
-        <div class="metric-bar">
-            <div class="metric-chip"><div class="metric-label">GAME ID</div><div class="metric-value">#1504</div></div>
-            <div class="metric-chip"><div class="metric-label">ደራሽ</div><div class="metric-value">150</div></div>
-            <div class="metric-chip"><div class="metric-label">ተጫዋች</div><div class="metric-value" id="stat-players">1</div></div>
-            <div class="metric-chip"><div class="metric-label">STAKE</div><div class="metric-value" id="stat-stake">19</div></div>
-            <div class="metric-chip"><div class="metric-label">ጥሪ</div><div class="metric-value" id="stat-callcount">0/75</div></div>
-            <div class="metric-chip metric-sound" onclick="toggleSound()"><div class="metric-label">ድምፅ</div><div class="metric-value" id="sound-icon">🔊</div></div>
-        </div>
+    <!-- የጀርባ Wave Pattern -->
+    <div class="wave-bg"></div>
 
-        <div class="game-boards-row">
-            <!-- Master Board (1-75) -->
-            <div class="master-panel">
-                <div class="master-board" id="master-board"></div>
+    <div class="app-container">
+
+        <!-- ==================== VIEW 1: LOBBY ==================== -->
+        <section id="view-lobby" class="view active">
+            <!-- Top Status Bar -->
+            <div class="lobby-top-bar">
+                <div class="status-pill live"><span class="dot"></span> Live</div>
+                <div class="status-pill">Bonus: <span id="lobby-bonus">--:--</span></div>
+                <div class="status-pill">Balance: <span id="lobby-balance">--:--</span></div>
             </div>
-            
-            <div class="right-column">
-                <!-- Caller & Countdown Area -->
-                <div class="caller-area">
-                    <div id="pre-game-area">
-                        <div style="font-size:10px; color:var(--text-muted); margin-bottom:4px;">የካርድ ብዛት ይምረጡ፦</div>
-                        <!-- Multi-Card Selector -->
-                        <div class="card-selector-bar">
-                            <button class="card-sel-btn active" onclick="setCardCount(1)">1 ካርድ</button>
-                            <button class="card-sel-btn" onclick="setCardCount(2)">2 ካርድ</button>
-                            <button class="card-sel-btn" onclick="setCardCount(4)">4 ካርድ</button>
-                        </div>
-                        <button class="btn-refresh back-btn" onclick="simulatePlayerJoin()" style="width:100%; padding:6px; font-size:11px;">+ ተጫዋች አስገባ (Start)</button>
+
+            <!-- Title Header -->
+            <div class="lobby-header">
+                <i class="fa-solid fa-bullseye logo-icon"></i>
+                <h2>BINGO GAMES</h2>
+            </div>
+
+            <!-- Table Header -->
+            <div class="room-table-header">
+                <span>BET</span>
+                <span>WIN/PLAY</span>
+                <span>STATUS & JOIN</span>
+            </div>
+
+            <!-- Room List -->
+            <div class="room-list">
+                <!-- 10 ETB Room -->
+                <div class="room-card">
+                    <div class="room-bet">
+                        <span class="stake-val">10</span>
+                        <span class="currency">ETB</span>
                     </div>
-                    <div id="in-game-area" style="display:none;">
-                        <div class="countdown-row">
-                            <span>Count Down</span>
-                            <span id="countdown-status">30ስ</span>
-                        </div>
-                        <div class="countdown-bar-track"><div class="countdown-bar-fill" id="countdown-bar"></div></div>
-                        
-                        <div class="current-call-card">
-                            <span class="current-call-badge" id="current-call">--</span>
-                        </div>
-                        
-                        <div class="called-balls" id="called-balls"></div>
+                    <div class="room-info">
+                        <div class="win-row"><i class="fa-solid fa-ribbon text-red"></i> --</div>
+                        <div class="players-count">-- Players</div>
+                        <div class="jackpot-tag">JACKPOT ----:1000</div>
+                    </div>
+                    <div class="room-action">
+                        <div class="status-badge active-badge">ACTIVE 1<br><small>STARTS --:--</small></div>
+                        <button class="btn-join">JOIN</button>
                     </div>
                 </div>
 
-                <!-- Multi Player Boards Container -->
-                <div class="cards-container cards-1" id="cards-container">
-                    <!-- Cards are dynamically injected here -->
+                <!-- 20 ETB Room -->
+                <div class="room-card">
+                    <div class="room-bet">
+                        <span class="stake-val">20</span>
+                        <span class="currency">ETB</span>
+                    </div>
+                    <div class="room-info">
+                        <div class="win-row"><i class="fa-solid fa-ribbon text-red"></i> --</div>
+                        <div class="players-count">-- Players</div>
+                        <div class="jackpot-tag">JACKPOT ----:1000</div>
+                    </div>
+                    <div class="room-action">
+                        <div class="status-badge ready-badge">ACTIVE 1<br><small>READY</small></div>
+                        <button class="btn-join">JOIN</button>
+                    </div>
+                </div>
+
+                <!-- 50 ETB Room -->
+                <div class="room-card">
+                    <div class="room-bet">
+                        <span class="stake-val">50</span>
+                        <span class="currency">ETB</span>
+                    </div>
+                    <div class="room-info">
+                        <div class="win-row"><i class="fa-solid fa-ribbon text-red"></i> --</div>
+                        <div class="players-count">-- Players</div>
+                        <div class="jackpot-tag">JACKPOT ----:1000</div>
+                    </div>
+                    <div class="room-action">
+                        <div class="status-badge ready-badge">ACTIVE 1<br><small>READY</small></div>
+                        <button class="btn-join">JOIN</button>
+                    </div>
+                </div>
+
+                <!-- 100 ETB Room -->
+                <div class="room-card">
+                    <div class="room-bet">
+                        <span class="stake-val">100</span>
+                        <span class="currency">ETB</span>
+                    </div>
+                    <div class="room-info">
+                        <div class="win-row"><i class="fa-solid fa-ribbon text-red"></i> --</div>
+                        <div class="players-count">-- Players</div>
+                        <div class="jackpot-tag">JACKPOT ----:1000</div>
+                    </div>
+                    <div class="room-action">
+                        <div class="status-badge ready-badge">ACTIVE 1<br><small>READY</small></div>
+                        <button class="btn-join">JOIN</button>
+                    </div>
+                </div>
+
+                <!-- FREE DEMO Room -->
+                <div class="room-card demo-card">
+                    <div class="room-bet">
+                        <span class="stake-val-demo">FREE</span>
+                        <span class="currency">DEMO</span>
+                    </div>
+                    <div class="room-info">
+                        <div class="practice-title">Practice Mode</div>
+                        <div class="practice-sub">No real money</div>
+                    </div>
+                    <div class="room-action demo-actions">
+                        <button class="btn-open">OPEN</button>
+                        <button class="btn-try">TRY</button>
+                    </div>
                 </div>
             </div>
-        </div>
+        </section>
 
-        <!-- Action Buttons -->
-        <button class="bingo-btn" id="bingo-action-btn" onclick="claimBingo()">BINGO!</button>
-        <div class="action-bar-row">
-            <button class="back-btn btn-leave" onclick="confirmLeave()">⬅️ Leave</button>
-            <button class="back-btn btn-refresh" onclick="location.reload()">🔄 Refresh</button>
-        </div>
+
+        <!-- ==================== VIEW 2: MASTER GRID / CALLER ==================== -->
+        <section id="view-caller" class="view">
+            <!-- Stat Cards Row -->
+            <div class="top-stats-grid">
+                <div class="stat-pill">Wallet<br><b>--:--</b></div>
+                <div class="stat-pill">Bonus<br><b>--:--</b></div>
+                <div class="stat-pill">Active Game<br><b>--:--</b></div>
+                <div class="stat-pill">Stake<br><b>--:--</b></div>
+            </div>
+
+            <!-- Jackpot Bar -->
+            <div class="jackpot-banner">
+                <span>JACKPOT</span>
+                <span>--:-- / 1000</span>
+            </div>
+
+            <!-- 1-100 Grid Board -->
+            <div class="master-100-grid" id="grid-100">
+                <!-- JS Will Generate 1 to 100 grid cells -->
+            </div>
+
+            <!-- Bottom Master Controls & Fairness -->
+            <div class="master-bottom-section">
+                <div class="ticket-mini-preview">
+                    <!-- Small 5x5 Preview -->
+                    <div class="mini-grid" id="mini-card-preview"></div>
+                </div>
+                <div class="master-btns">
+                    <button class="btn-blue"><i class="fa-solid fa-arrows-rotate"></i> Refresh</button>
+                    <button class="btn-orange"><i class="fa-solid fa-play"></i> Start Game</button>
+                </div>
+            </div>
+
+            <div class="fairness-card">
+                <div class="fairness-title">GAME HASH (FAIRNESS)</div>
+                <div class="fairness-id">ID: Qz4931</div>
+                <div class="fairness-hash">9dd2a51b40132e3868ac99c836a0936ff118bee582777ef5827300dbaf23d0f2</div>
+            </div>
+        </section>
+
+
+        <!-- ==================== VIEW 3: GAMEPLAY ==================== -->
+        <section id="view-gameplay" class="view">
+            <!-- Top Header Stats Pills -->
+            <div class="gameplay-header-pills">
+                <div class="g-pill">Game<br><b>P59731</b></div>
+                <div class="g-pill">Derash<br><b>--:--</b></div>
+                <div class="g-pill">Bones<br><b>On</b></div>
+                <div class="g-pill">Players<br><b>--:--</b></div>
+                <div class="g-pill">Stake<br><b>--:--</b></div>
+                <div class="g-pill">Call<br><b>--</b></div>
+                <div class="g-pill"><i class="fa-solid fa-volume-high"></i><br>Sound</div>
+            </div>
+
+            <div class="gameplay-main-layout">
+                <!-- Left 1-75 Master Grid -->
+                <div class="bingo-75-master">
+                    <div class="b-header-col">
+                        <span class="col-b">B</span>
+                        <span class="col-i">I</span>
+                        <span class="col-n">N</span>
+                        <span class="col-g">G</span>
+                        <span class="col-o">O</span>
+                    </div>
+                    <div class="b-grid-75" id="grid-75">
+                        <!-- JS Will populate 1 to 75 cells vertically -->
+                    </div>
+                </div>
+
+                <!-- Right Gameplay Dashboard -->
+                <div class="gameplay-dashboard">
+                    <!-- Count Down -->
+                    <div class="dash-box countdown-box">
+                        <span>Count Down</span>
+                        <span class="cd-val">--</span>
+                    </div>
+
+                    <!-- Current Call Ball -->
+                    <div class="dash-box current-call-box">
+                        <span>Current Call</span>
+                        <div class="call-ball-main">B-4</div>
+                    </div>
+
+                    <!-- History Balls -->
+                    <div class="recent-balls-row">
+                        <span class="ball b-yellow">B4</span>
+                        <span class="ball b-green">O64</span>
+                        <span class="ball b-blue">N33</span>
+                        <span class="ball b-pink">I17</span>
+                    </div>
+
+                    <!-- Player 5x5 Ticket -->
+                    <div class="ticket-card-container">
+                        <div class="ticket-header">
+                            <span class="t-b">B</span>
+                            <span class="t-i">I</span>
+                            <span class="t-n">N</span>
+                            <span class="t-g">G</span>
+                            <span class="t-o">O</span>
+                        </div>
+                        <div class="ticket-grid-5x5" id="player-ticket-grid">
+                            <!-- 5x5 Ticket Numbers -->
+                        </div>
+                        <div class="board-no-tag">Board Number 98</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Big Action Buttons -->
+            <div class="gameplay-action-bar">
+                <button class="btn-pink-bingo" id="btn-bingo">BINGO!</button>
+                <div class="secondary-btns">
+                    <button class="btn-blue"><i class="fa-solid fa-arrows-rotate"></i> Refresh</button>
+                    <button class="btn-orange"><i class="fa-solid fa-gauge-high"></i> Leave</button>
+                    <button class="btn-yellow"><i class="fa-solid fa-plus"></i> Add Board</button>
+                </div>
+            </div>
+        </section>
+
     </div>
-</div>
 
-<div class="bottom-nav">
-    <div class="nav-item active"><div style="font-size:16px;">🎮</div><span>ጨዋታ</span></div>
-    <div class="nav-item"><div style="font-size:16px;">🏆</div><span>ውጤቶች</span></div>
-    <div class="nav-item"><div style="font-size:16px;">📜</div><span>ታሪክ</span></div>
-    <div class="nav-item"><div style="font-size:16px;">💳</div><span>ዎሌት</span></div>
-    <div class="nav-item"><div style="font-size:16px;">👤</div><span>መገለጫ</span></div>
-</div>
+    <!-- ==================== UNIVERSAL BOTTOM NAVIGATION ==================== -->
+    <nav class="bottom-nav">
+        <button class="nav-item active" onclick="switchView('view-gameplay')">
+            <i class="fa-solid fa-gamepad"></i>
+            <span>Game</span>
+        </button>
+        <button class="nav-item" onclick="switchView('view-caller')">
+            <i class="fa-solid fa-trophy"></i>
+            <span>Scores</span>
+        </button>
+        <button class="nav-item" onclick="switchView('view-lobby')">
+            <i class="fa-solid fa-clock-rotate-left"></i>
+            <span>History</span>
+        </button>
+        <button class="nav-item" onclick="switchView('view-lobby')">
+            <i class="fa-solid fa-wallet"></i>
+            <span>Wallet</span>
+        </button>
+        <button class="nav-item" onclick="switchView('view-lobby')">
+            <i class="fa-solid fa-user"></i>
+            <span>Profile</span>
+        </button>
+    </nav>
 
-<script>
-    let soundEnabled = true;
-    let audioUnlocked = false;
-
-    let playersCount = 1;
-    let gameState = 'waiting'; 
-    let countdownTimer = 30;
-    let countdownInterval;
-    let callInterval;
-    
-    let selectedCardCount = 1;
-    let baseStake = 19;
-    let calledNumbers = [];
-    
-    // Array of objects holding each card's numbers and marked state
-    let playerCardsData = [];
-
-    const BINGO_LETTERS = ['B', 'I', 'N', 'G', 'O'];
-
-    function unlockAudio() {
-        if (audioUnlocked) return;
-        let a = new Audio();
-        a.play().then(() => { audioUnlocked = true; }).catch(() => {});
-    }
-    document.addEventListener('click', unlockAudio, { once: true });
-    document.addEventListener('touchstart', unlockAudio, { once: true });
-
-    function playCallSound(text) {
-        if (!soundEnabled) return;
-        let soundUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=en&q=${encodeURIComponent(text)}`;
-        let audio = new Audio(soundUrl);
-        audio.play().catch(err => console.log("Audio error:", err));
-    }
-
-    function toggleSound() {
-        soundEnabled = !soundEnabled;
-        document.getElementById('sound-icon').innerText = soundEnabled ? '🔊' : '🔇';
-    }
-
-    function confirmLeave() {
-        if(confirm("ከጨዋታው መውጣት ይፈልጋሉ?")) {
-            alert("ከጨዋታው ወጥተዋል!");
+    <!-- Inline Script for UI Grid Generation & View Switching Test -->
+    <script>
+        // Switch Between Views
+        function switchView(viewId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+            
+            document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
+            event.currentTarget.classList.add('active');
         }
-    }
 
-    function setCardCount(count) {
-        if(gameState !== 'waiting') return;
-        selectedCardCount = count;
-        
-        // Update Selector UI
-        document.querySelectorAll('.card-sel-btn').forEach((btn, idx) => {
-            if((idx === 0 && count === 1) || (idx === 1 && count === 2) || (idx === 2 && count === 4)) {
-                btn.classList.add('active');
+        // Generate 1-100 Grid for Master View
+        const grid100 = document.getElementById('grid-100');
+        const highlighted = [1, 41, 57, 98, 100]; // matching screenshot
+        for (let i = 1; i <= 100; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell-100';
+            if (highlighted.includes(i)) cell.classList.add('active-num');
+            if (i === 1 || i === 41 || i === 57) cell.classList.add('orange-cell');
+            if (i === 98) cell.classList.add('purple-cell');
+            if (i === 100) cell.classList.add('red-cell');
+            cell.innerText = i;
+            grid100.appendChild(cell);
+        }
+
+        // Generate 1-75 Master Grid
+        const grid75 = document.getElementById('grid-75');
+        for (let i = 1; i <= 75; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell-75';
+            cell.innerText = i;
+            grid75.appendChild(cell);
+        }
+
+        // Generate Player 5x5 Ticket (Matching Frame 2 screenshot)
+        const ticketValues = [
+            13, 18, 34, 48, 68,
+            3,  19, 41, 51, 64,
+            10, 23, '*', 53, 67,
+            15, 16, 43, 59, 70,
+            4,  25, 31, 47, 65
+        ];
+        const ticketGrid = document.getElementById('player-ticket-grid');
+        const miniCardPreview = document.getElementById('mini-card-preview');
+
+        ticketValues.forEach((val, idx) => {
+            // Main Ticket
+            const cell = document.createElement('div');
+            cell.className = 't-cell';
+            if (val === '*') {
+                cell.classList.add('star-cell');
+                cell.innerHTML = '&#9733;';
             } else {
-                btn.classList.remove('active');
+                cell.innerText = val;
             }
+            ticketGrid.appendChild(cell);
+
+            // Mini Preview Ticket
+            const miniCell = cell.cloneNode(true);
+            miniCardPreview.appendChild(miniCell);
         });
-
-        // Update Stake Value based on card count
-        document.getElementById('stat-stake').innerText = baseStake * selectedCardCount;
-
-        // Re-generate and render cards
-        generateAllPlayerCards();
-        renderAllPlayerCards();
-    }
-
-    function init() {
-        renderMasterBoard();
-        generateAllPlayerCards();
-        renderAllPlayerCards();
-    }
-
-    function renderMasterBoard() {
-        const mb = document.getElementById('master-board');
-        mb.innerHTML = '';
-        BINGO_LETTERS.forEach(l => {
-            let h = document.createElement('div');
-            h.className = `mb-cell mb-header ${l.toLowerCase()}`;
-            h.innerText = l;
-            mb.appendChild(h);
-        });
-        for(let row=0; row<15; row++) {
-            for(let col=0; col<5; col++) {
-                let num = (col * 15) + (row + 1);
-                let cell = document.createElement('div');
-                cell.className = `mb-cell num-${num}`;
-                cell.innerText = num;
-                mb.appendChild(cell);
-            }
-        }
-    }
-
-    function generateSingleCardData(cardId) {
-        let numbers = [];
-        let marked = Array(25).fill(false);
-        
-        for (let col = 0; col < 5; col++) {
-            let columnNums = [];
-            while (columnNums.length < 5) {
-                let rand = Math.floor(Math.random() * 15) + 1 + (col * 15);
-                if (!columnNums.includes(rand)) columnNums.push(rand);
-            }
-            for(let row=0; row<5; row++) {
-                numbers[row * 5 + col] = columnNums[row];
-            }
-        }
-        numbers[12] = 'FREE'; 
-        marked[12] = true;
-
-        return { id: cardId, numbers: numbers, marked: marked };
-    }
-
-    function generateAllPlayerCards() {
-        playerCardsData = [];
-        for(let i = 0; i < selectedCardCount; i++) {
-            playerCardsData.push(generateSingleCardData(i + 1));
-        }
-    }
-
-    function renderAllPlayerCards() {
-        const container = document.getElementById('cards-container');
-        container.className = `cards-container cards-${selectedCardCount}`;
-        container.innerHTML = '';
-
-        playerCardsData.forEach((card, cardIndex) => {
-            let wrapper = document.createElement('div');
-            wrapper.className = 'card-wrapper';
-
-            let header = document.createElement('div');
-            header.className = 'card-header-title';
-            header.innerText = `ካርድ #${card.id}`;
-            wrapper.appendChild(header);
-
-            let board = document.createElement('div');
-            board.className = 'bingo-board';
-
-            // Headers B-I-N-G-O
-            BINGO_LETTERS.forEach(l => {
-                let h = document.createElement('div');
-                h.className = `bb-cell bb-header ${l.toLowerCase()}`;
-                h.innerText = l;
-                board.appendChild(h);
-            });
-
-            // 25 Cells
-            for(let i = 0; i < 25; i++) {
-                let cell = document.createElement('div');
-                cell.className = 'bb-cell';
-                
-                if (i === 12) {
-                    cell.classList.add('free', 'marked');
-                    cell.innerHTML = '⭐<br>FREE';
-                } else {
-                    cell.innerText = card.numbers[i];
-                    if(card.marked[i]) cell.classList.add('marked');
-                    
-                    cell.addEventListener('click', () => {
-                        if(gameState !== 'playing') return;
-                        let num = card.numbers[i];
-                        if(calledNumbers.includes(num)) {
-                            card.marked[i] = !card.marked[i];
-                            renderAllPlayerCards();
-                        }
-                    });
-                }
-                board.appendChild(cell);
-            }
-
-            wrapper.appendChild(board);
-            container.appendChild(wrapper);
-        });
-    }
-
-    function simulatePlayerJoin() {
-        playersCount++;
-        document.getElementById('stat-players').innerText = playersCount;
-        if(playersCount >= 2 && gameState === 'waiting') {
-            startCountdown();
-        }
-    }
-
-    function startCountdown() {
-        gameState = 'countdown';
-        document.getElementById('pre-game-area').style.display = 'none';
-        document.getElementById('in-game-area').style.display = 'block';
-        
-        countdownTimer = 30;
-        let bar = document.getElementById('countdown-bar');
-        
-        countdownInterval = setInterval(() => {
-            countdownTimer--;
-            document.getElementById('countdown-status').innerText = (countdownTimer < 10 ? '0' : '') + countdownTimer + 'ስ';
-            bar.style.width = (countdownTimer / 30 * 100) + '%';
-            
-            if(countdownTimer <= 0) {
-                clearInterval(countdownInterval);
-                startGameplay();
-            }
-        }, 1000);
-    }
-
-    function startGameplay() {
-        gameState = 'playing';
-        calledNumbers = [];
-        document.getElementById('countdown-status').innerText = 'ጨዋታው ቀጥሏል...';
-        document.getElementById('countdown-bar').style.width = '0%';
-        
-        callNextNumber();
-        callInterval = setInterval(callNextNumber, 4000);
-    }
-
-    function callNextNumber() {
-        if(calledNumbers.length >= 75) {
-            endRound();
-            return;
-        }
-
-        let num;
-        do { num = Math.floor(Math.random() * 75) + 1; } while(calledNumbers.includes(num));
-        calledNumbers.push(num);
-        
-        document.getElementById('stat-callcount').innerText = `${calledNumbers.length}/75`;
-
-        let letter = '';
-        if(num <= 15) letter = 'B';
-        else if(num <= 30) letter = 'I';
-        else if(num <= 45) letter = 'N';
-        else if(num <= 60) letter = 'G';
-        else letter = 'O';
-
-        let callText = `${letter}-${num}`;
-        
-        let badge = document.getElementById('current-call');
-        badge.innerText = callText;
-        badge.style.backgroundColor = `var(--${letter.toLowerCase()})`;
-
-        let masterCell = document.querySelector(`.num-${num}`);
-        if(masterCell) masterCell.classList.add('called', letter.toLowerCase());
-
-        let hist = document.getElementById('called-balls');
-        let miniBall = document.createElement('div');
-        miniBall.className = 'mini-ball';
-        miniBall.style.backgroundColor = `var(--${letter.toLowerCase()})`;
-        miniBall.innerText = num;
-        hist.prepend(miniBall);
-        if(hist.children.length > 3) hist.removeChild(hist.lastChild);
-
-        playCallSound(`${letter} ${num}`);
-    }
-
-    function claimBingo() {
-        playCallSound("BINGO! Checked.");
-        alert("BINGO! በማለት ጠይቀዋል!");
-    }
-
-    function endRound() {
-        clearInterval(callInterval);
-        gameState = 'waiting';
-        document.getElementById('countdown-status').innerText = 'እንደገና ይጀመራል...';
-        
-        setTimeout(() => {
-            calledNumbers = [];
-            document.getElementById('stat-callcount').innerText = "0/75";
-            document.getElementById('current-call').innerText = "--";
-            document.getElementById('current-call').style.backgroundColor = "var(--n)";
-            document.getElementById('called-balls').innerHTML = '';
-            
-            renderMasterBoard();
-            generateAllPlayerCards();
-            renderAllPlayerCards();
-            
-            startCountdown();
-        }, 4000);
-    }
-
-    window.onload = init;
-</script>
+    </script>
 </body>
 </html>
